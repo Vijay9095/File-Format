@@ -1,0 +1,891 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MMROADWAYS File Converter</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/pdfjs-dist@3.4.120/build/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  /* ===== CSS VARIABLES ===== */
+  :root {
+    --cream: #faf8f4;
+    --warm-white: #fffef9;
+    --sand: #f0ece2;
+    --terracotta: #c9622f;
+    --terracotta-light: #e8855c;
+    --terracotta-dark: #a0481e;
+    --brown: #5c3d2e;
+    --brown-light: #8b6255;
+    --text-primary: #2a1f1a;
+    --text-secondary: #6b4f44;
+    --text-muted: #a08070;
+    --border: #e0d5c8;
+    --shadow: rgba(90, 50, 30, 0.12);
+    --shadow-strong: rgba(90, 50, 30, 0.22);
+    --success: #4a9e6b;
+    --road-stripe: #d4c9b8;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--cream);
+    color: var(--text-primary);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    overflow-x: hidden;
+  }
+
+  /* ===== ROAD PATTERN BACKGROUND ===== */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      repeating-linear-gradient(
+        90deg,
+        transparent,
+        transparent 120px,
+        rgba(212,201,184,0.15) 120px,
+        rgba(212,201,184,0.15) 122px
+      );
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ===== HEADER / NAVBAR ===== */
+  header {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: var(--warm-white);
+    border-bottom: 2px solid var(--border);
+    box-shadow: 0 2px 20px var(--shadow);
+    padding: 0 40px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 72px;
+  }
+
+  .logo-wrap {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .logo-icon {
+    width: 44px;
+    height: 44px;
+    background: linear-gradient(135deg, var(--terracotta), var(--terracotta-dark));
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(201,98,47,0.35);
+  }
+
+  .logo-icon svg { width: 24px; height: 24px; fill: white; }
+
+  .logo-text {
+    font-family: 'Playfair Display', serif;
+    font-size: 22px;
+    font-weight: 900;
+    color: var(--brown);
+    letter-spacing: -0.5px;
+  }
+
+  .logo-text span {
+    color: var(--terracotta);
+  }
+
+  .header-badge {
+    background: var(--sand);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 6px 16px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  /* ===== HERO SECTION ===== */
+  .hero {
+    position: relative;
+    z-index: 1;
+    padding: 70px 40px 50px;
+    text-align: center;
+    max-width: 800px;
+    margin: 0 auto;
+  }
+
+  .hero-eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(90deg, rgba(201,98,47,0.1), rgba(201,98,47,0.05));
+    border: 1px solid rgba(201,98,47,0.3);
+    border-radius: 30px;
+    padding: 8px 20px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--terracotta);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    margin-bottom: 24px;
+  }
+
+  .hero-eyebrow::before {
+    content: '';
+    width: 6px; height: 6px;
+    background: var(--terracotta);
+    border-radius: 50%;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(1.4); }
+  }
+
+  h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(36px, 5vw, 58px);
+    font-weight: 900;
+    color: var(--brown);
+    line-height: 1.1;
+    margin-bottom: 18px;
+  }
+
+  h1 em {
+    font-style: italic;
+    color: var(--terracotta);
+  }
+
+  .hero-sub {
+    font-size: 17px;
+    color: var(--text-secondary);
+    line-height: 1.7;
+    font-weight: 300;
+    max-width: 500px;
+    margin: 0 auto 40px;
+  }
+
+  /* ===== CONVERTER CARD ===== */
+  .card {
+    position: relative;
+    z-index: 1;
+    background: var(--warm-white);
+    border: 2px solid var(--border);
+    border-radius: 24px;
+    box-shadow: 0 8px 40px var(--shadow), 0 2px 8px var(--shadow);
+    max-width: 680px;
+    margin: 0 auto 60px;
+    overflow: hidden;
+  }
+
+  .card-top {
+    background: linear-gradient(135deg, var(--sand), #e8e0d0);
+    padding: 8px 24px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .dot { width: 12px; height: 12px; border-radius: 50%; }
+  .dot.r { background: #ff6b6b; }
+  .dot.y { background: #ffd43b; }
+  .dot.g { background: #51cf66; }
+
+  .card-title-bar {
+    flex: 1;
+    text-align: center;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-muted);
+    letter-spacing: 0.5px;
+  }
+
+  .card-body {
+    padding: 40px;
+  }
+
+  /* ===== DROP ZONE ===== */
+  .drop-zone {
+    border: 2.5px dashed var(--border);
+    border-radius: 18px;
+    padding: 52px 30px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    background: linear-gradient(135deg, var(--cream), var(--sand));
+    position: relative;
+    overflow: hidden;
+  }
+
+  .drop-zone::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(201,98,47,0.06), rgba(201,98,47,0.02));
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .drop-zone:hover, .drop-zone.dragover {
+    border-color: var(--terracotta);
+    transform: translateY(-3px);
+    box-shadow: 0 12px 36px var(--shadow-strong);
+  }
+
+  .drop-zone:hover::before, .drop-zone.dragover::before { opacity: 1; }
+
+  .drop-icon {
+    width: 72px;
+    height: 72px;
+    background: linear-gradient(135deg, var(--terracotta), var(--terracotta-light));
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 20px;
+    box-shadow: 0 8px 24px rgba(201,98,47,0.3);
+    transition: transform 0.3s;
+  }
+
+  .drop-zone:hover .drop-icon { transform: scale(1.08) rotate(-3deg); }
+
+  .drop-icon svg { width: 36px; height: 36px; fill: white; }
+
+  .drop-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--brown);
+    margin-bottom: 8px;
+  }
+
+  .drop-sub {
+    font-size: 14px;
+    color: var(--text-muted);
+    margin-bottom: 20px;
+  }
+
+  .browse-btn {
+    display: inline-block;
+    background: linear-gradient(135deg, var(--terracotta), var(--terracotta-dark));
+    color: white;
+    padding: 12px 28px;
+    border-radius: 30px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    box-shadow: 0 4px 16px rgba(201,98,47,0.4);
+    transition: all 0.2s;
+    letter-spacing: 0.3px;
+  }
+
+  .browse-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(201,98,47,0.5);
+  }
+
+  #fileInput { display: none; }
+
+  /* ===== FILE INFO ===== */
+  .file-info {
+    display: none;
+    align-items: center;
+    gap: 16px;
+    background: var(--sand);
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    padding: 16px 20px;
+    margin-top: 20px;
+  }
+
+  .file-info.show { display: flex; }
+
+  .file-thumb {
+    width: 48px;
+    height: 48px;
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 10px;
+    font-weight: 800;
+    color: white;
+    letter-spacing: 0.5px;
+  }
+
+  .file-details { flex: 1; }
+  .file-name { font-weight: 600; font-size: 14px; color: var(--brown); }
+  .file-size { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+
+  .remove-btn {
+    width: 32px; height: 32px;
+    border: none;
+    background: rgba(201,98,47,0.1);
+    border-radius: 8px;
+    cursor: pointer;
+    color: var(--terracotta);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    transition: background 0.2s;
+  }
+  .remove-btn:hover { background: rgba(201,98,47,0.2); }
+
+  /* ===== CONVERT BUTTON ===== */
+  .convert-btn {
+    width: 100%;
+    margin-top: 24px;
+    padding: 18px;
+    background: linear-gradient(135deg, var(--terracotta), var(--terracotta-dark));
+    color: white;
+    border: none;
+    border-radius: 14px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 6px 24px rgba(201,98,47,0.4);
+    transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    letter-spacing: 0.3px;
+  }
+
+  .convert-btn:hover:not(:disabled) {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 32px rgba(201,98,47,0.5);
+  }
+
+  .convert-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .convert-btn svg { width: 20px; height: 20px; fill: white; }
+
+  /* ===== PROGRESS ===== */
+  .progress-wrap {
+    display: none;
+    margin-top: 24px;
+  }
+  .progress-wrap.show { display: block; }
+
+  .progress-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    margin-bottom: 10px;
+  }
+
+  .progress-bar-bg {
+    height: 8px;
+    background: var(--sand);
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+
+  .progress-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--terracotta), var(--terracotta-light));
+    border-radius: 10px;
+    width: 0%;
+    transition: width 0.4s ease;
+  }
+
+  /* ===== STATUS ===== */
+  .status-msg {
+    display: none;
+    align-items: center;
+    gap: 12px;
+    margin-top: 20px;
+    padding: 16px 20px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 500;
+  }
+
+  .status-msg.success {
+    display: flex;
+    background: rgba(74,158,107,0.1);
+    border: 1.5px solid rgba(74,158,107,0.3);
+    color: var(--success);
+  }
+
+  .status-msg.error {
+    display: flex;
+    background: rgba(201,98,47,0.1);
+    border: 1.5px solid rgba(201,98,47,0.3);
+    color: var(--terracotta-dark);
+  }
+
+  /* ===== DOWNLOAD BTN ===== */
+  .download-btn {
+    width: 100%;
+    margin-top: 16px;
+    padding: 16px;
+    background: linear-gradient(135deg, #2d7a4f, var(--success));
+    color: white;
+    border: none;
+    border-radius: 14px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 6px 20px rgba(74,158,107,0.4);
+    transition: all 0.3s;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    animation: bounceIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  .download-btn.show {
+    display: flex;
+  }
+
+  @keyframes bounceIn {
+    from { transform: scale(0.8); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+  }
+
+  .download-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 28px rgba(74,158,107,0.5);
+  }
+
+  /* ===== FEATURES ===== */
+  .features {
+    position: relative;
+    z-index: 1;
+    max-width: 780px;
+    margin: 0 auto 70px;
+    padding: 0 40px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+
+  .feat {
+    background: var(--warm-white);
+    border: 1.5px solid var(--border);
+    border-radius: 16px;
+    padding: 28px 22px;
+    text-align: center;
+    box-shadow: 0 2px 12px var(--shadow);
+    transition: transform 0.3s, box-shadow 0.3s;
+  }
+
+  .feat:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 30px var(--shadow-strong);
+  }
+
+  .feat-icon {
+    width: 52px; height: 52px;
+    background: linear-gradient(135deg, var(--sand), var(--cream));
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 16px;
+    font-size: 22px;
+  }
+
+  .feat h3 {
+    font-family: 'Playfair Display', serif;
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--brown);
+    margin-bottom: 8px;
+  }
+
+  .feat p {
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.6;
+  }
+
+  /* ===== FOOTER ===== */
+  footer {
+    margin-top: auto;
+    background: var(--brown);
+    color: rgba(255,255,255,0.7);
+    text-align: center;
+    padding: 28px 40px;
+    position: relative;
+    z-index: 1;
+  }
+
+  .footer-road {
+    height: 4px;
+    background: repeating-linear-gradient(
+      90deg,
+      var(--terracotta) 0px,
+      var(--terracotta) 30px,
+      transparent 30px,
+      transparent 50px
+    );
+    margin-bottom: 24px;
+    opacity: 0.6;
+  }
+
+  .footer-logo {
+    font-family: 'Playfair Display', serif;
+    font-size: 20px;
+    font-weight: 900;
+    color: white;
+    margin-bottom: 8px;
+  }
+
+  .footer-logo span { color: var(--terracotta-light); }
+
+  footer p {
+    font-size: 13px;
+    line-height: 1.8;
+  }
+
+  .dev-credit {
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid rgba(255,255,255,0.15);
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .dev-credit strong {
+    color: var(--terracotta-light);
+    font-weight: 600;
+    font-size: 13px;
+  }
+
+  .heart { color: #ff6b6b; animation: heartbeat 1.5s infinite; }
+  @keyframes heartbeat {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+  }
+
+  /* ===== SPINNER ===== */
+  .spinner {
+    width: 18px; height: 18px;
+    border: 2px solid rgba(255,255,255,0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    display: none;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ===== RESPONSIVE ===== */
+  @media (max-width: 640px) {
+    header { padding: 0 20px; }
+    .hero { padding: 50px 20px 30px; }
+    .card-body { padding: 28px 22px; }
+    .features { grid-template-columns: 1fr; padding: 0 20px; }
+    h1 { font-size: 32px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="logo-wrap">
+    <div class="logo-icon">
+      <svg viewBox="0 0 24 24"><path d="M12 2L4 7v10l8 5 8-5V7L12 2zm0 2.3L18 8v8.3L12 19.7 6 16.3V8L12 4.3z"/></svg>
+    </div>
+    <div class="logo-text">MM<span>ROADWAYS</span></div>
+  </div>
+  <div class="header-badge">✦ File Converter</div>
+</header>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-eyebrow">Fast & Secure Conversion</div>
+  <h1>PDF to <em>Excel</em><br>Made Simple</h1>
+  <p class="hero-sub">Upload your PDF file and instantly convert it to an Excel spreadsheet. No signup required — just upload, convert, and download.</p>
+</section>
+
+<!-- CONVERTER CARD -->
+<div class="card">
+  <div class="card-top">
+    <div class="dot r"></div>
+    <div class="dot y"></div>
+    <div class="dot g"></div>
+    <div class="card-title-bar">PDF → XLSX Converter</div>
+  </div>
+  <div class="card-body">
+
+    <div class="drop-zone" id="dropZone">
+      <div class="drop-icon">
+        <svg viewBox="0 0 24 24"><path d="M19 3H5C3.9 3 3 3.9 3 5v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 14l-5-5h3V9h4v3h3l-5 5z"/></svg>
+      </div>
+      <div class="drop-title">Drop your PDF here</div>
+      <div class="drop-sub">Supports any PDF file — tables, text, data</div>
+      <label class="browse-btn" for="fileInput">Browse File</label>
+      <input type="file" id="fileInput" accept=".pdf" style="display:none">
+    </div>
+
+    <div class="file-info" id="fileInfo">
+      <div class="file-thumb">PDF</div>
+      <div class="file-details">
+        <div class="file-name" id="fileName">document.pdf</div>
+        <div class="file-size" id="fileSize">0 KB</div>
+      </div>
+      <button class="remove-btn" onclick="removeFile()">×</button>
+    </div>
+
+    <button class="convert-btn" id="convertBtn" onclick="convertPDF()" disabled>
+      <span class="spinner" id="spinner"></span>
+      <svg viewBox="0 0 24 24" id="convertIcon"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-1 11h-4v4h-4v-4H6l6-6 6 6z"/></svg>
+      <span id="convertText">Convert to Excel</span>
+    </button>
+
+    <div class="progress-wrap" id="progressWrap">
+      <div class="progress-label">
+        <span id="progressLabel">Processing...</span>
+        <span id="progressPct">0%</span>
+      </div>
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" id="progressFill"></div>
+      </div>
+    </div>
+
+    <div class="status-msg" id="statusMsg"></div>
+
+    <button class="download-btn" id="downloadBtn">
+      <svg viewBox="0 0 24 24" fill="white" width="20" height="20"><path d="M5 20h14v-2H5v2zm7-18L6 8h4v6h4V8h4l-6-6z" transform="scale(1,-1) translate(0,-24)"/><path d="M19 9h-4V3H9v6H5l7 7 7-7z"/></svg>
+      Download Excel File
+    </button>
+  </div>
+</div>
+
+<!-- FEATURES -->
+<section class="features">
+  <div class="feat">
+    <div class="feat-icon">⚡</div>
+    <h3>Instant Conversion</h3>
+    <p>Convert your PDF files to Excel format in seconds, right in your browser.</p>
+  </div>
+  <div class="feat">
+    <div class="feat-icon">🔒</div>
+    <h3>100% Secure</h3>
+    <p>All processing happens locally. Your files never leave your device.</p>
+  </div>
+  <div class="feat">
+    <div class="feat-icon">📊</div>
+    <h3>Clean Output</h3>
+    <p>Extracted text and tables are neatly organized in spreadsheet rows and columns.</p>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-road"></div>
+  <div class="footer-logo">MM<span>ROADWAYS</span></div>
+  <p>Professional File Conversion Tools<br>Simplifying your document workflow</p>
+  <div class="dev-credit">
+    <span>Developed with</span>
+    <span class="heart">♥</span>
+    <span>by</span>
+    <strong>Vignesh</strong>
+  </div>
+</footer>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://unpkg.com/pdfjs-dist@3.4.120/build/pdf.worker.min.js';
+
+let selectedFile = null;
+let excelBlob = null;
+
+// Drag & Drop
+const dropZone = document.getElementById('dropZone');
+dropZone.addEventListener('click', e => {
+  if (e.target.classList.contains('browse-btn') || e.target.tagName === 'LABEL') return;
+  document.getElementById('fileInput').click();
+});
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file && file.type === 'application/pdf') handleFile(file);
+  else showStatus('error', '⚠️ Please upload a valid PDF file.');
+});
+
+document.getElementById('fileInput').addEventListener('change', e => {
+  if (e.target.files[0]) handleFile(e.target.files[0]);
+});
+
+function handleFile(file) {
+  selectedFile = file;
+  document.getElementById('fileName').textContent = file.name;
+  document.getElementById('fileSize').textContent = formatSize(file.size);
+  document.getElementById('fileInfo').classList.add('show');
+  document.getElementById('convertBtn').disabled = false;
+  hideStatus();
+  document.getElementById('downloadBtn').classList.remove('show');
+  excelBlob = null;
+}
+
+function removeFile() {
+  selectedFile = null;
+  document.getElementById('fileInfo').classList.remove('show');
+  document.getElementById('convertBtn').disabled = true;
+  document.getElementById('fileInput').value = '';
+  hideStatus();
+  document.getElementById('downloadBtn').classList.remove('show');
+  document.getElementById('progressWrap').classList.remove('show');
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+}
+
+async function convertPDF() {
+  if (!selectedFile) return;
+
+  const btn = document.getElementById('convertBtn');
+  const spinner = document.getElementById('spinner');
+  const convertIcon = document.getElementById('convertIcon');
+  const convertText = document.getElementById('convertText');
+
+  btn.disabled = true;
+  spinner.style.display = 'block';
+  convertIcon.style.display = 'none';
+  convertText.textContent = 'Converting...';
+  hideStatus();
+  document.getElementById('downloadBtn').classList.remove('show');
+
+  setProgress(0, 'Reading PDF...');
+  document.getElementById('progressWrap').classList.add('show');
+
+  try {
+    const arrayBuffer = await selectedFile.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const numPages = pdf.numPages;
+
+    const workbook = XLSX.utils.book_new();
+    const allData = [];
+
+    allData.push(['MMROADWAYS File Converter', '', '', '']);
+    allData.push(['Source File:', selectedFile.name, '', '']);
+    allData.push(['Converted On:', new Date().toLocaleString(), '', '']);
+    allData.push(['Total Pages:', numPages, '', '']);
+    allData.push(['', '', '', '']);
+
+    for (let p = 1; p <= numPages; p++) {
+      const pct = Math.round((p / numPages) * 80);
+      setProgress(pct, `Processing page ${p} of ${numPages}...`);
+
+      const page = await pdf.getPage(p);
+      const textContent = await page.getTextContent();
+
+      allData.push([`--- Page ${p} ---`, '', '', '']);
+
+      // Group text items by approximate Y position (rows)
+      const rows = {};
+      for (const item of textContent.items) {
+        if (!item.str.trim()) continue;
+        const y = Math.round(item.transform[5]);
+        if (!rows[y]) rows[y] = [];
+        rows[y].push({ x: item.transform[4], text: item.str });
+      }
+
+      // Sort rows by Y descending (top to bottom)
+      const sortedYs = Object.keys(rows).map(Number).sort((a, b) => b - a);
+      for (const y of sortedYs) {
+        const cells = rows[y].sort((a, b) => a.x - b.x).map(i => i.text);
+        allData.push(cells);
+      }
+
+      allData.push(['', '', '', '']);
+    }
+
+    setProgress(90, 'Building Excel file...');
+
+    const ws = XLSX.utils.aoa_to_sheet(allData);
+
+    // Style header area
+    ws['!cols'] = [{ wch: 35 }, { wch: 35 }, { wch: 25 }, { wch: 20 }];
+
+    XLSX.utils.book_append_sheet(workbook, ws, 'Converted PDF');
+
+    setProgress(100, 'Done!');
+
+    const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+    excelBlob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
+    showStatus('success', `✅ Successfully converted ${numPages} page(s) to Excel!`);
+    document.getElementById('downloadBtn').classList.add('show');
+
+    const baseName = selectedFile.name.replace(/\.pdf$/i, '');
+    document.getElementById('downloadBtn').onclick = () => {
+      const url = URL.createObjectURL(excelBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${baseName}_converted.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    };
+
+  } catch (err) {
+    console.error(err);
+    showStatus('error', '❌ Conversion failed. Please try another PDF file.');
+    document.getElementById('progressWrap').classList.remove('show');
+  } finally {
+    btn.disabled = false;
+    spinner.style.display = 'none';
+    convertIcon.style.display = 'block';
+    convertText.textContent = 'Convert to Excel';
+  }
+}
+
+function setProgress(pct, label) {
+  document.getElementById('progressFill').style.width = pct + '%';
+  document.getElementById('progressLabel').textContent = label;
+  document.getElementById('progressPct').textContent = pct + '%';
+}
+
+function showStatus(type, msg) {
+  const el = document.getElementById('statusMsg');
+  el.className = 'status-msg ' + type;
+  el.textContent = msg;
+}
+
+function hideStatus() {
+  document.getElementById('statusMsg').className = 'status-msg';
+}
+</script>
+</body>
+</html>
